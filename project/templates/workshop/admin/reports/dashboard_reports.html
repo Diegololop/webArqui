@@ -1,0 +1,185 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% load report_filters %}
+
+{% block title %}Panel de Informes{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Panel de Informes y Estadísticas</h1>
+        <div class="btn-group">
+            <a href="{% url 'service_performance_report' %}" class="btn btn-outline-primary">
+                <i class="fas fa-chart-line me-2"></i>Rendimiento de Servicios
+            </a>
+            <a href="{% url 'financial_report' %}" class="btn btn-outline-success">
+                <i class="fas fa-dollar-sign me-2"></i>Informe Financiero
+            </a>
+            <a href="{% url 'customer_report' %}" class="btn btn-outline-info">
+                <i class="fas fa-users me-2"></i>Informe de Clientes
+            </a>
+        </div>
+    </div>
+
+    <!-- Resumen General -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Total Clientes</h5>
+                    <h2 class="mb-0">{{ total_clients }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Órdenes Activas</h5>
+                    <h2 class="mb-0">{{ active_work_orders }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Órdenes Completadas</h5>
+                    <h2 class="mb-0">{{ completed_work_orders }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Reservas Pendientes</h5>
+                    <h2 class="mb-0">{{ pending_reservations }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Servicios Populares -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Servicios Más Populares</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Servicio</th>
+                                    <th>Reservas</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for service in popular_services %}
+                                    <tr>
+                                        <td>{{ service.name }}</td>
+                                        <td>{{ service.total_reservations }}</td>
+                                    </tr>
+                                {% empty %}
+                                    <tr>
+                                        <td colspan="2" class="text-center">No hay datos disponibles</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Ingresos Diarios</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="dailyIncomeChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Métricas Adicionales -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Tasa de Conversión</h5>
+                </div>
+                <div class="card-body text-center">
+                    <h2 class="display-4">{{ conversion_rate }}%</h2>
+                    <p class="text-muted">De reservas a órdenes de trabajo</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Tiempo Promedio de Servicio</h5>
+                </div>
+                <div class="card-body text-center">
+                    <h2 class="display-4">
+                        {% if avg_service_time %}
+                            {{ avg_service_time|duration }}
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </h2>
+                    <p class="text-muted">Desde inicio hasta finalización</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Los datos se pasan como JSON, ya no es necesario formatear las fechas en JavaScript
+    const dailyData = {{ daily_income|safe }};  // Los datos ya están en formato JSON
+
+    const ctx = document.getElementById('dailyIncomeChart').getContext('2d');
+    if (dailyData.length > 0) {
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: dailyData.map(item => {
+                    // La fecha ahora es una cadena en formato 'YYYY-MM-DD'
+                    const date = new Date(item.day); // 'item.day' es una cadena en formato ISO
+                    return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+                }),
+                datasets: [{
+                    label: 'Ingresos Diarios',
+                    data: dailyData.map(item => item.total),
+                    borderColor: 'rgb(75, 192, 192)',
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '$' + value.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    } else {
+        // Si no hay datos, muestra un mensaje en el gráfico
+        ctx.fillText("No hay datos disponibles", 100, 100);
+    }
+});
+
+
+</script>
+{% endblock %}
+{% endblock %}

@@ -1,0 +1,180 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% load report_filters %}
+<style>
+    /* Custom Compact Design */
+    .custom-dashboard {
+        font-size: 0.9rem;
+    }
+    .custom-dashboard .card {
+        margin-bottom: 0.75rem;
+    }
+    .custom-dashboard .card-header {
+        padding: 0.5rem 1rem;
+    }
+    .custom-dashboard .card-body {
+        padding: 0.5rem;
+    }
+    .custom-dashboard .table {
+        margin-bottom: 0;
+        font-size: 0.85rem;
+    }
+    .custom-dashboard .btn-group {
+        gap: 0.25rem;
+    }
+    .custom-dashboard .badge {
+        font-size: 0.65rem;
+        padding: 0.25em 0.4em;
+    }
+</style>
+
+{% block title %}Informe de Clientes{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Panel de Informes y Estadísticas</h1>
+        <div class="btn-group">
+            <a href="{% url 'service_performance_report' %}" class="btn btn-outline-primary">
+                <i class="fas fa-chart-line me-2"></i>Rendimiento de Servicios
+            </a>
+            <a href="{% url 'financial_report' %}" class="btn btn-outline-success">
+                <i class="fas fa-dollar-sign me-2"></i>Informe Financiero
+            </a>
+            <a href="{% url 'customer_report' %}" class="btn btn-outline-info">
+                <i class="fas fa-users me-2"></i>Informe de Clientes
+            </a>
+        </div>
+    </div>
+
+    <!-- Tasa de Retención -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Tasa de Retención de Clientes</h5>
+        </div>
+        <div class="card-body text-center">
+            <div class="display-4 mb-3">{{ retention_rate }}%</div>
+            <p class="text-muted">Porcentaje de clientes que han vuelto al menos una vez</p>
+        </div>
+    </div>
+
+    <!-- Clientes Principales -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Top 10 Clientes</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Cliente</th>
+                            <th>Total Órdenes</th>
+                            <th>Total Gastado</th>
+                            <th>Promedio por Orden</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for client in top_clients %}
+                            <tr>
+                                <td>
+                                    {{ client.user.get_full_name }}
+                                    <br>
+                                    <small class="text-muted">{{ client.user.email }}</small>
+                                </td>
+                                <td>{{ client.total_orders }}</td>
+                                <td>${{ client.total_spent|floatformat:0|intcomma }}</td>
+                                <td>${{ client.total_spent|divide:client.total_orders|floatformat:0|intcomma }}</td>
+                                <td>
+                                    {% if client.total_orders >= 10 %}
+                                        <span class="badge bg-success">Cliente VIP</span>
+                                    {% elif client.total_orders >= 5 %}
+                                        <span class="badge bg-info">Cliente Frecuente</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Cliente Regular</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center">No hay datos disponibles</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráfico de Distribución de Clientes -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Distribución de Clientes por Frecuencia</h5>
+        </div>
+        <div class="card-body d-flex justify-content-center">
+            <canvas id="customerDistributionChart" width="300" height="200"></canvas>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let chartInstance; // Variable global para almacenar la instancia del gráfico
+
+document.addEventListener('DOMContentLoaded', function () {
+    const ctx = document.getElementById('customerDistributionChart').getContext('2d');
+    
+    // Destruir el gráfico existente si ya está inicializado
+    if (chartInstance) {
+        chartInstance.destroy();
+    }
+
+    // Crear un nuevo gráfico
+    chartInstance = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: ['VIP (10+ visitas)', 'Frecuentes (5-9 visitas)', 'Regulares (1-4 visitas)'],
+            datasets: [{
+                data: [
+                    {{ vip_clients }},
+                    {{ frequent_clients }},
+                    {{ regular_clients }}
+                ],
+                backgroundColor: [
+                    'rgba(40, 167, 69, 0.5)',
+                    'rgba(23, 162, 184, 0.5)',
+                    'rgba(108, 117, 125, 0.5)'
+                ],
+                borderColor: [
+                    'rgb(40, 167, 69)',
+                    'rgb(23, 162, 184)',
+                    'rgb(108, 117, 125)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: {
+                padding: 10
+            },
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: {
+                        boxWidth: 20,
+                        font: {
+                            size: 10
+                        }
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}
+{% endblock %}

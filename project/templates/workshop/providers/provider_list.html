@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Gestión de Proveedores{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Gestión de Proveedores</h1>
+        {% if user.is_superuser or user.userprofile.role == 'admin' %}
+            <a href="{% url 'provider_add' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Nuevo Proveedor
+            </a>
+        {% endif %}
+    </div>
+
+    <div class="card shadow">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>RUT</th>
+                            <th>Email</th>
+                            <th>Teléfono</th>
+                            <th>Dirección</th>
+                            {% if user.is_superuser or user.userprofile.role == 'admin' %}
+                                <th>Acciones</th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for provider in providers %}
+                            <tr>
+                                <td>{{ provider.name }}</td>
+                                <td>{{ provider.rut }}</td>
+                                <td>{{ provider.email }}</td>
+                                <td>{{ provider.phone }}</td>
+                                <td>{{ provider.address }}</td>
+                                {% if user.is_superuser or user.userprofile.role == 'admin' %}
+                                    <td>
+                                        <div class="btn-group">
+                                            <a href="{% url 'provider_edit' provider.id %}" class="btn btn-sm btn-info" title="Editar">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <a href="{% url 'provider_delete' provider.id %}" class="btn btn-sm btn-danger" title="Eliminar">
+                                                <i class="fas fa-trash"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                {% endif %}
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="{% if user.is_superuser or user.userprofile.role == 'admin' %}6{% else %}5{% endif %}" class="text-center py-4">
+                                    <div class="text-muted">
+                                        <i class="fas fa-truck fa-2x mb-3"></i>
+                                        <p>No hay proveedores registrados.</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,257 @@
+{% extends 'base.html' %}
+{% load widget_tweaks %}
+{% load humanize %}
+
+{% block title %}{{ action }} Reserva{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <!-- Formulario principal -->
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="card-title mb-0">{{ action }} Reserva</h2>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="reservationForm">
+                        {% csrf_token %}
+                        
+                        <!-- Cliente -->
+                        <div class="mb-3">
+                            <label for="{{ form.client.id_for_label }}" class="form-label">Cliente*</label>
+                            {% render_field form.client class="form-control" %}
+                            {% if form.client.errors %}
+                                <div class="text-danger">{{ form.client.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Servicios -->
+                        <div class="mb-4">
+                            <label class="form-label">Servicios Disponibles*</label>
+                            <div class="row g-3">
+                                {% for service in services %}
+                                    <div class="col-md-6">
+                                        <div class="card h-100 service-card" id="service-card-{{ service.id }}">
+                                            {% if service.image %}
+                                                <img src="{{ service.image.url }}" class="card-img-top" alt="{{ service.name }}" 
+                                                     style="height: 150px; object-fit: cover;">
+                                            {% endif %}
+                                            <div class="card-body">
+                                                <h5 class="card-title">{{ service.name }}</h5>
+                                                <p class="card-text">{{ service.description }}</p>
+                                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                                    <span class="badge bg-primary">${{ service.price|floatformat:0|intcomma }}</span>
+                                                    <span class="badge bg-info">
+                                                        <i class="fas fa-clock"></i> {{ service.duration }} min
+                                                    </span>
+                                                </div>
+                                                <button type="button" class="btn btn-outline-primary w-100 service-btn" 
+                                                        id="btn-service-{{ service.id }}"
+                                                        onclick="toggleService({{ service.id }}, '{{ service.name }}', {{ service.duration }}, {{ service.price }})">
+                                                    <i class="fas fa-plus me-2"></i>Seleccionar
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                            {% render_field form.services class="d-none" id="servicesInput" multiple="multiple" %}
+                        </div>
+
+                        <!-- Fecha y Hora -->
+                        <div class="mb-3">
+                            <label for="{{ form.service_date.id_for_label }}" class="form-label">Fecha y Hora*</label>
+                            {% render_field form.service_date class="form-control" type="datetime-local" %}
+                            {% if form.service_date.errors %}
+                                <div class="text-danger">{{ form.service_date.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Descripción -->
+                        <div class="mb-3">
+                            <label for="{{ form.description.id_for_label }}" class="form-label">Descripción</label>
+                            {% render_field form.description class="form-control" rows="3" %}
+                            {% if form.description.errors %}
+                                <div class="text-danger">{{ form.description.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Estado -->
+                        <div class="mb-4">
+                            <label for="{{ form.status.id_for_label }}" class="form-label">Estado*</label>
+                            {% render_field form.status class="form-control" %}
+                            {% if form.status.errors %}
+                                <div class="text-danger">{{ form.status.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'admin_reservation_list' %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Volver
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> {{ action }} Reserva
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Resumen lateral -->
+        <div class="col-md-4">
+            <div class="card shadow sticky-top" style="top: 1rem;">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-shopping-cart me-2"></i>Servicios Seleccionados
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div id="selectedServicesList" class="list-group list-group-flush">
+                        <!-- Los servicios seleccionados se mostrarán aquí -->
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Duración Total:</span>
+                        <strong id="totalDuration">0 minutos</strong>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span>Precio Total:</span>
+                        <strong id="totalPrice">$0</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let selectedServices = new Set();
+
+function toggleService(id, name, duration, price) {
+    const btn = document.querySelector(`#btn-service-${id}`);
+    const card = document.querySelector(`#service-card-${id}`);
+    
+    if (selectedServices.has(id)) {
+        selectedServices.delete(id);
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-outline-primary');
+        btn.innerHTML = '<i class="fas fa-plus me-2"></i>Seleccionar';
+        card.classList.remove('selected');
+        document.getElementById(`selected-service-${id}`)?.remove();
+    } else {
+        selectedServices.add(id);
+        btn.classList.remove('btn-outline-primary');
+        btn.classList.add('btn-primary');
+        btn.innerHTML = '<i class="fas fa-check me-2"></i>Seleccionado';
+        card.classList.add('selected');
+        
+        const formattedPrice = new Intl.NumberFormat('es-CL').format(price);
+        const serviceHtml = `
+            <div class="list-group-item" id="selected-service-${id}">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-0">${name}</h6>
+                        <small class="text-muted">
+                            <i class="fas fa-clock me-1"></i>${duration} min
+                            <span class="ms-2">$${formattedPrice}</span>
+                        </small>
+                    </div>
+                    <button type="button" class="btn btn-danger btn-sm" 
+                            onclick="toggleService(${id}, '${name}', ${duration}, ${price})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+        document.getElementById('selectedServicesList').insertAdjacentHTML('beforeend', serviceHtml);
+    }
+    
+    updateServicesInput();
+    updateTotals();
+}
+
+function updateServicesInput() {
+    const input = document.getElementById('servicesInput');
+    Array.from(input.options).forEach(option => {
+        option.selected = selectedServices.has(parseInt(option.value));
+    });
+}
+
+function updateTotals() {
+    let totalDuration = 0;
+    let totalPrice = 0;
+    
+    selectedServices.forEach(id => {
+        const btn = document.querySelector(`#btn-service-${id}`);
+        const card = document.querySelector(`#service-card-${id}`);
+        
+        // Obtener los valores de duración y precio de los botones seleccionados
+        const duration = parseInt(card.querySelector('.badge.bg-info').innerText.split(' ')[1]);
+        const price = parseInt(card.querySelector('.badge.bg-primary').innerText.replace(/[^\d]/g, ''));
+        
+        totalDuration += duration;
+        totalPrice += price;
+    });
+    
+    document.getElementById('totalDuration').textContent = `${totalDuration} minutos`;
+    document.getElementById('totalPrice').textContent = `$${totalPrice.toLocaleString()}`;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Pre-seleccionar servicios si estamos editando
+    {% if form.instance.id %}
+        {% for service in form.instance.services.all %}
+            toggleService({{ service.id }}, '{{ service.name }}', {{ service.duration }}, {{ service.price }});
+        {% endfor %}
+    {% endif %}
+
+    // Validación del formulario
+    const form = document.getElementById('reservationForm');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            if (selectedServices.size === 0) {
+                e.preventDefault();
+                alert('Por favor seleccione al menos un servicio');
+                return;
+            }
+        });
+    }
+});
+</script>
+
+<style>
+.service-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.service-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.service-card.selected {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+.sticky-top {
+    z-index: 100;
+}
+
+.list-group-item {
+    border-left: none;
+    border-right: none;
+}
+
+.list-group-item:first-child {
+    border-top: none;
+}
+
+.list-group-item:last-child {
+    border-bottom: none;
+}
+</style>
+{% endblock %}
