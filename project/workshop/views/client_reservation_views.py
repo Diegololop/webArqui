@@ -9,16 +9,19 @@ def client_reservation_form(request):
     """Vista de reservas para clientes"""
     if request.method == 'POST':
         form = ClientReservationForm(request.POST)
-        services = request.POST.getlist('services')
-        
-        if not services:
+        services = request.POST.get('services', '')  # Usa get para capturar como cadena si llega separada por comas
+
+        # Asegurarse de que los servicios sean una lista
+        if services:
+            services = services.split(',')  # Convertir la cadena en una lista de IDs
+        else:
             messages.error(request, 'Debe seleccionar al menos un servicio.')
-            return redirect('client_reservation_form')
+            return redirect('create_reservation')
 
         if form.is_valid():
-            # Obtener servicios seleccionados
+            # Filtrar servicios seleccionados
             selected_services = Product.objects.filter(id__in=services)
-            
+
             # Calcular totales
             total_duration = sum(service.duration or 0 for service in selected_services)
             total_price = sum(service.price for service in selected_services)
@@ -27,11 +30,20 @@ def client_reservation_form(request):
             if request.user.is_authenticated and hasattr(request.user, 'client'):
                 client = request.user.client
             else:
-                # Validar campos adicionales para cliente no registrado
+                # Validar campos adicionales para clientes no registrados
                 required_fields = ['first_name', 'last_name', 'email', 'phone', 'rut']
                 if not all(form.cleaned_data.get(field) for field in required_fields):
                     messages.error(request, 'Todos los campos son requeridos para clientes no registrados.')
-                    return redirect('client_reservation_form')
+                    return redirect('create_reservation')
+
+                # Validar si el correo o RUT ya están registrados
+                if User.objects.filter(username=form.cleaned_data['email']).exists():
+                    messages.error(request, 'El correo proporcionado ya está registrado.')
+                    return redirect('create_reservation')
+
+                if Client.objects.filter(rut=form.cleaned_data['rut']).exists():
+                    messages.error(request, 'El RUT proporcionado ya está registrado.')
+                    return redirect('create_reservation')
 
                 # Crear usuario
                 user = User.objects.create_user(
@@ -73,3 +85,4 @@ def client_reservation_form(request):
         'form': form,
         'services': Product.objects.filter(category='service')
     })
+
