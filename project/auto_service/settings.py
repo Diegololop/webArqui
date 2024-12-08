@@ -5,9 +5,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = 'your-secret-key-here'
 
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['serviflow.pythonanywhere.com']
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -16,10 +16,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'django.contrib.humanize', 
+    'django.contrib.humanize',
     'widget_tweaks',
     'workshop',
-    
+
 ]
 
 MIDDLEWARE = [
